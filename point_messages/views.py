@@ -7,8 +7,10 @@ from django.contrib.gis.measure import D
 from .models import Message
 from .serializers import MessageSerializer
 from rest_framework import permissions 
+
 class MessageViewSet(mixins.CreateModelMixin,  
                      viewsets.GenericViewSet):
+    queryset = Message.objects.all()
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = MessageSerializer
     def create(self, request):

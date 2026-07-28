@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from django.contrib.gis.geos import Point, fromstr
+from django.contrib.gis.geos import Point as GeosPoint, fromstr
 from .models import Point
 
 class PointSerializer(serializers.ModelSerializer):
@@ -19,6 +19,17 @@ class PointSerializer(serializers.ModelSerializer):
         
         validated_data['location'] = location
         return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        lon = validated_data.pop('longitude', None)
+        lat = validated_data.pop('latitude', None)
+
+        if lon is not None and lat is not None:
+            location = GeosPoint(lon, lat)
+            location.srid = 4326
+            instance.location = location
+
+        return super().update(instance, validated_data)
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)

@@ -2,11 +2,12 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
-from django.contrib.gis.geos import Point
+from django.contrib.gis.geos import Point as GeosPoint
 from django.contrib.gis.measure import D
 from .models import Point
 from .serializers import PointSerializer
 from rest_framework import permissions  
+from django.contrib.gis.db.models.functions import Distance
 
 class PointViewSet(viewsets.ModelViewSet):
     queryset = Point.objects.all()
@@ -19,34 +20,36 @@ class PointViewSet(viewsets.ModelViewSet):
         return self.queryset.order_by('-created_at') 
 
     @action(detail=False, methods=['get'], url_path='search')
-    def search(self, request, *args, **kwargs):
+    def search(self, request):
+        try:
+            lat = float(request.query_params.get('latitude'))
+            lon = float(request.query_params.get('longitude'))
+            radius = float(request.query_params.get('radius', 10))  # по умолчанию 10 км
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "Необходимо передать latitude, longitude и radius (числа)"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        latitude = request.query_params.get('latitude')
-        longitude = request.query_params.get('longitude')
-        radius = request.query_params.get('radius')
+        if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+            return Response(
+                {"error": "Некорректные координаты"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        if latitude and longitude:
-            try:
-                lat = float(latitude)
-                lon = float(longitude)
-                rad = float(radius) if radius else 5.0
-            except ValueError:
-                return Response(
-                    {"error": "latitude, longitude должны быть числами"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        if radius < 0:
+            return Response(
+                {"error": "Радиус не может быть отрицательным"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-            center = Point(lon, lat, srid=4326)
-            queryset = Point.objects.filter(
-                location__distance_lte=(center, D(km=rad))
-            ).order_by('created_at')
-        else:
-            queryset = self.get_queryset()
+        center = GeosPoint(lon, lat, srid=4326)
 
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        points = Point.objects.filter(
+            location__distance_lte=(center, D(km=radius))
+        ).annotate(
+            distance=Distance('location', center)
+        ).order_by('distance')
 
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = self.get_serializer(points, many=True)
         return Response(serializer.data)
