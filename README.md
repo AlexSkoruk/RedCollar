@@ -1,66 +1,173 @@
-# Geo Points Backend
+# RedCollar
 
-Backend-приложение на Django для работы с географическими точками и сообщениями в постапокалиптическом мире («Тихий Сдвиг»).  
-Позволяет создавать точки на карте, оставлять сообщения к ним и получать данные через REST API.
+API для работы с географическими точками и сообщениями к ним.
+
+Проект позволяет создавать точки на карте, оставлять к ним сообщения и искать точки/сообщения в заданном радиусе.
+
+## Возможности
+
+- Полный CRUD для точек (создание, просмотр, обновление, удаление)
+- Создание сообщений к точкам
+- Поиск точек в радиусе (в километрах)
+- Поиск сообщений в радиусе (в километрах)
+- Автоматическое определение автора сообщения
+- Хранение координат в формате WGS 84 (SRID 4326)
 
 ## Технологии
 
-- Python 3.14
-- Django 5.1
-- Django REST Framework
-- GeoDjango + Spatialite (SQLite)
-- Basic Authentication
+- **Python 3.12+**
+- **Django 6.0**
+- **Django REST Framework**
+- **GeoDjango** + SpatiaLite
+- **GDAL / GEOS**
 
 ## Установка и запуск
 
-1. Клонируйте репозиторий:
-   ```bash
-   git clone <ваш-репозиторий>
-   cd <имя-папки>
+### 1. Клонирование репозитория
 
-Создайте и активируйте виртуальное окружение:Bashpython -m venv venv
-# Windows:
+```bash
+git clone https://github.com/AlexSkoruk/RedCollar.git
+cd RedCollar
+```
+
+### 2. Создание виртуального окружения
+
+```bash
+python -m venv venv
+
+# Windows
 venv\Scripts\activate
-# macOS/Linux:
+
+# Linux / macOS
 source venv/bin/activate
-Установите зависимости:Bashpip install django==5.1 djangorestframework
-Важно для Windows: установка GDAL
-Скачайте wheel-файл с https://github.com/cgohlke/geospatial-wheels/releases
-(выберите версию для вашей Python, например GDAL-3.11.4-cp314-cp314-win_amd64.whl)Bashpip install путь/к/GDAL-3.11.4-cp314-cp314-win_amd64.whl
-Настройте пути к библиотекам в config/settings.py (добавьте в конец файла):PythonGDAL_LIBRARY_PATH = r'C:\Users\...\venv\Lib\site-packages\osgeo\gdal311.dll'
+```
+
+### 3. Установка зависимостей
+
+```bash
+pip install -r requirements.txt
+```
+
+#### Важно для Windows: установка GDAL
+
+1. Скачайте wheel-файл с https://github.com/cgohlke/geospatial-wheels/releases
+   (выберите версию под вашу Python, например `GDAL-3.11.4-cp314-cp314-win_amd64.whl`)
+
+2. Установите его:
+
+```bash
+pip install путь/к/GDAL-3.11.4-cp314-cp314-win_amd64.whl
+```
+
+3. Добавьте пути к библиотекам в `config/settings.py` (в конец файла):
+
+```python
+GDAL_LIBRARY_PATH = r'C:\Users\...\venv\Lib\site-packages\osgeo\gdal311.dll'
 GEOS_LIBRARY_PATH = r'C:\Users\...\venv\Lib\site-packages\osgeo\geos_c.dll'
 SPATIALITE_LIBRARY_PATH = 'mod_spatialite'
-Примените миграции и создайте суперюзера:Bashpython manage.py makemigrations
-python manage.py migrate
-python manage.py createsuperuser
-Запустите сервер:Bashpython manage.py runserver
+```
 
-Основные эндпоинты
-Все эндпоинты защищены авторизацией (Basic Auth).
-1. Создание точки на карте
-POST /api/points/
-Тело запроса (JSON):
-JSON{
-  "title": "Точка в Франкфурте",
-  "longitude": 8.6821,
-  "latitude": 50.1109
-}
-2. Создание сообщения к точке
-POST /api/messages/
-Тело запроса (JSON):
-JSON{
-  "point": 1,                     // ID существующей точки
-  "text": "Здесь можно отдохнуть. Мертвецы далеко."
-}
-3. Получение сообщений в радиусе (поиск по гео)
-GET /api/messages/search/?latitude=50.11&longitude=8.68&radius=10
-Возвращает список сообщений в указанном радиусе (по умолчанию 5 км).
-4. Список всех точек
-GET /api/points/
-Авторизация
-Все запросы требуют Basic Authentication.
-Пример в curl:
-Bashcurl -u iskatel1:secret123 \
-     -H "Content-Type: application/json" \
-     -d '{"point": 1, "text": "Тихо, припасы рядом"}' \
-     http://127.0.0.1:8000/api/messages/
+> Замените `C:\Users\...` на актуальный путь к вашему виртуальному окружению.
+
+### 4. Применение миграций
+
+```bash
+python manage.py migrate
+```
+
+### 5. Создание суперпользователя (опционально)
+
+```bash
+python manage.py createsuperuser
+```
+
+### 6. Запуск сервера
+
+```bash
+python manage.py runserver
+```
+
+Сервер будет доступен по адресу: http://127.0.0.1:8000
+API: http://127.0.0.1:8000/api/
+
+---
+
+## API Endpoints
+
+Все эндпоинты (кроме корневого) требуют аутентификации.
+
+### Корневой эндпоинт
+
+GET /api/ — список доступных ресурсов
+
+### Точки (`/api/points/`)
+
+GET /api/points/ — список всех точек
+POST /api/points/ — создать точку
+GET /api/points/{id}/ — получить точку
+PUT /api/points/{id}/ — полное обновление точки
+PATCH /api/points/{id}/ — частичное обновление точки
+DELETE /api/points/{id}/ — удалить точку
+GET /api/points/search/ — поиск точек в радиусе
+
+**Параметры поиска точек:**
+- `latitude` — широта (обязательно)
+- `longitude` — долгота (обязательно)
+- `radius` — радиус в **километрах** (по умолчанию 10)
+
+### Сообщения (`/api/messages/`)
+
+| Метод | URL | Описание |
+|-------|-----|----------|
+| POST | `/api/messages/` | Создать сообщение |
+| GET | `/api/messages/search/` | Поиск сообщений в радиусе |
+
+**Параметры поиска сообщений:**
+- `latitude` — широта (обязательно)
+- `longitude` — долгота (обязательно)
+- `radius` — радиус в **километрах** (по умолчанию 5)
+
+---
+
+## Техническое описание
+
+### Модели
+
+**Point**
+- `title` — название точки
+- `location` — географическая точка (`PointField`, SRID 4326)
+- `created_at` — дата создания
+
+**Message**
+- `point` — связь с точкой (`ForeignKey`)
+- `author` — автор (`ForeignKey` на User, устанавливается автоматически)
+- `text` — текст сообщения
+- `created_at` — дата создания
+
+### Особенности реализации
+
+- Координаты принимаются и отдаются как отдельные поля `longitude` и `latitude`
+- В базе хранится одно поле `location` типа `Point`
+- При создании и обновлении точки координаты преобразуются в объект `GEOSGeometry`
+- Поиск использует пространственные lookup'ы GeoDjango (`distance_lte`)
+- Оба поиска (точки и сообщения) работают в **километрах**
+- Автор сообщения устанавливается автоматически из `request.user`
+
+### Структура проекта
+
+```text
+RedCollar/
+├── config/
+├── points/
+│   ├── models.py
+│   ├── serializers.py
+│   ├── views.py
+│   └── ...
+├── point_messages/
+│   ├── models.py
+│   ├── serializers.py
+│   ├── views.py
+│   └── ...
+├── manage.py
+└── requirements.txt
+```
